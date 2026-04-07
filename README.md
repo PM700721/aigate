@@ -2,9 +2,9 @@
 
 # ⚡ aigate
 
-**OpenAI-compatible and Anthropic-compatible AI Gateway for Kiro and AWS Bedrock**
+**Free AI Gateway — Use Claude and GPT through Kiro and GitHub Copilot, no API key needed**
 
-A lightweight local API proxy that lets Cursor, Cline, Continue, LangChain, and any OpenAI/Anthropic-compatible tool use Claude through Kiro — with a single binary and zero config.
+One binary. Multiple free AI providers. OpenAI and Anthropic compatible.
 
 [![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -16,23 +16,27 @@ A lightweight local API proxy that lets Cursor, Cline, Continue, LangChain, and 
 
 ## What is aigate?
 
-aigate is a lightweight OpenAI-compatible and Anthropic-compatible AI gateway for Kiro and AWS Bedrock. It lets tools like Cursor, Claude Code, Cline, Continue, and LangChain connect through a single local proxy.
+aigate is a lightweight OpenAI-compatible and Anthropic-compatible AI gateway that combines **multiple free AI providers** into a single local API endpoint. Use Claude Sonnet 4.5 from Kiro and GPT-4.1 from GitHub Copilot — all through one proxy, no paid API keys required.
 
 Download one binary, run it, point your tools at `http://localhost:8000/v1` — done.
 
-### Supported AI Backends
+### Free AI Models — No API Key Required
 
-- ✅ **Kiro** — free Claude Sonnet 4.5, Haiku 4.5, Sonnet 4, DeepSeek, MiniMax, Qwen
-- 🔜 AWS Bedrock
-- 🔜 More coming...
+| Provider | Models | Cost | Setup |
+|----------|--------|------|-------|
+| **Kiro** | Claude Sonnet 4.5, Haiku 4.5, Sonnet 4, DeepSeek V3.2, MiniMax, Qwen | Free | `kiro-cli login` or Kiro IDE |
+| **GitHub Copilot** | GPT-4.1, Claude 3.5 Sonnet | Free (2000 req/mo) | `./aigate --copilot-login` |
+| 🔜 Gemini | Gemini 2.5 Pro, Flash | Free | Coming soon |
 
-### Works with Cursor, Cline, Continue, and More
+> **No paid API keys needed.** aigate uses your existing free-tier accounts to provide API access.
+
+### Works with Cursor, Cline, Codex CLI, and More
 
 Any tool that supports OpenAI or Anthropic APIs works out of the box:
 
-Cursor • Claude Code • Codex CLI • OpenCode • Aider • Cline • Roo Code • Kilo Code • Continue • Zed • Windsurf • OpenAI SDK • Anthropic SDK • LangChain • Obsidian • any OpenAI/Anthropic-compatible tool
+Cursor • Claude Code • Codex CLI • OpenCode • Aider • Cline • Roo Code • Kilo Code • Continue • Zed • Windsurf • OpenAI SDK • Anthropic SDK • LangChain • Obsidian
 
-> **None of these tools support Kiro natively.** aigate bridges the gap — it translates their standard API calls into Kiro's internal format.
+> **None of these tools support Kiro or Copilot Free natively.** aigate bridges the gap — it translates their standard API calls into each provider's internal format.
 
 ---
 
@@ -54,34 +58,22 @@ curl -fsSL https://github.com/hoazgazh/aigate/releases/latest/download/aigate-li
 curl -fsSL https://github.com/hoazgazh/aigate/releases/latest/download/aigate-linux-arm64 -o aigate && chmod +x aigate
 ```
 
-### 2. Configure
-
-Log in to [Kiro IDE](https://kiro.dev/) or run `kiro-cli login` first. Then:
+### 2. Login to providers
 
 ```bash
-export API_KEY="my-secret-key"    # You make this up — protects your proxy
+# Kiro (free Claude Sonnet 4.5, Haiku 4.5)
+# Option A: Kiro IDE — just open and log in, credentials auto-detected
+# Option B: kiro-cli
+kiro-cli login
+
+# GitHub Copilot (free GPT-4.1, Claude 3.5) — optional
+./aigate --copilot-login
 ```
-
-**That's it.** aigate auto-detects your Kiro credentials. No other config needed.
-
-<details>
-<summary>How auto-detection works</summary>
-
-aigate checks these paths in order:
-
-| Source | Path | Used by |
-|--------|------|---------|
-| kiro-cli SQLite | `~/.local/share/kiro-cli/data.sqlite3` | Linux / WSL / kiro-cli |
-| amazon-q SQLite | `~/.local/share/amazon-q/data.sqlite3` | amazon-q-developer-cli |
-| Kiro IDE JSON | `~/.aws/sso/cache/kiro-auth-token.json` | macOS / Kiro IDE |
-
-To override: `export KIRO_CLI_DB_FILE=...` or `export KIRO_CREDS_FILE=...`
-
-</details>
 
 ### 3. Start
 
 ```bash
+export API_KEY="my-secret-key"    # You make this up — protects your proxy
 ./aigate
 ```
 
@@ -98,11 +90,36 @@ Keep this terminal open. Open a new terminal for the next step.
 ### 4. Use
 
 ```bash
+# Kiro — Claude Sonnet 4.5
 curl http://localhost:8000/v1/chat/completions \
   -H "Authorization: Bearer my-secret-key" \
   -H "Content-Type: application/json" \
   -d '{"model":"claude-sonnet-4-5","messages":[{"role":"user","content":"Hello!"}]}'
+
+# GitHub Copilot — GPT-4.1 (prefix with copilot/)
+curl http://localhost:8000/v1/chat/completions \
+  -H "Authorization: Bearer my-secret-key" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"copilot/gpt-4.1","messages":[{"role":"user","content":"Hello!"}]}'
 ```
+
+---
+
+## Multi-Provider Model Routing
+
+aigate routes requests to the right provider based on model name prefix:
+
+| Model | Provider | Description |
+|-------|----------|-------------|
+| `claude-sonnet-4-5` | Kiro | Claude Sonnet 4.5 — balanced |
+| `claude-haiku-4-5` | Kiro | Claude Haiku 4.5 — fast |
+| `claude-sonnet-4` | Kiro | Claude Sonnet 4 |
+| `deepseek-v3.2` | Kiro | DeepSeek V3.2 — open MoE |
+| `copilot/gpt-4.1` | GitHub Copilot | GPT-4.1 |
+| `copilot/claude-3.5-sonnet` | GitHub Copilot | Claude 3.5 Sonnet |
+| `copilot/o4-mini` | GitHub Copilot | OpenAI o4-mini |
+
+> Use `copilot/` prefix for Copilot models. Everything else routes to Kiro.
 
 ---
 
@@ -113,7 +130,7 @@ aigate exposes a fully OpenAI-compatible `/v1/chat/completions` endpoint. Any to
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/v1/chat/completions` | POST | Chat completions (streaming + non-streaming) |
-| `/v1/models` | GET | List available models |
+| `/v1/models` | GET | List available models from all providers |
 | `/health` | GET | Health check |
 
 ### Use with OpenAI Python SDK
@@ -122,13 +139,18 @@ aigate exposes a fully OpenAI-compatible `/v1/chat/completions` endpoint. Any to
 from openai import OpenAI
 
 client = OpenAI(base_url="http://localhost:8000/v1", api_key="my-secret-key")
+
+# Use Kiro (Claude Sonnet 4.5)
 response = client.chat.completions.create(
     model="claude-sonnet-4-5",
     messages=[{"role": "user", "content": "Hello!"}],
-    stream=True,
 )
-for chunk in response:
-    print(chunk.choices[0].delta.content or "", end="")
+
+# Use Copilot (GPT-4.1)
+response = client.chat.completions.create(
+    model="copilot/gpt-4.1",
+    messages=[{"role": "user", "content": "Hello!"}],
+)
 ```
 
 ---
@@ -165,8 +187,22 @@ aigate acts as a proxy between your tools and Kiro. It translates OpenAI/Anthrop
 Your Tool (Cursor, Cline, SDK...)
     ↓ OpenAI/Anthropic API
   aigate (localhost:8000)
-    ↓ Kiro internal API
-  Kiro → Claude Sonnet 4.5, Haiku 4.5, etc.
+    ├─ claude-*     → Kiro → Claude Sonnet 4.5, Haiku 4.5
+    └─ copilot/*    → GitHub Copilot → GPT-4.1, Claude 3.5
+```
+
+---
+
+## GitHub Copilot Proxy — Use Copilot Free as an OpenAI API
+
+aigate can also proxy GitHub Copilot's free tier (2000 requests/month) as an OpenAI-compatible API. This gives you access to GPT-4.1 and Claude 3.5 Sonnet for free.
+
+```bash
+# One-time login (opens browser for GitHub OAuth)
+./aigate --copilot-login
+
+# Then start normally — Copilot models appear with copilot/ prefix
+./aigate
 ```
 
 ---
@@ -179,7 +215,7 @@ Set in your IDE settings:
 |---------|-------|
 | Base URL | `http://localhost:8000/v1` |
 | API Key | your `API_KEY` value (e.g. `my-secret-key`) |
-| Model | `claude-sonnet-4-5` |
+| Model | `claude-sonnet-4-5` or `copilot/gpt-4.1` |
 
 ### Codex CLI
 
@@ -196,14 +232,14 @@ codex
 ### OpenCode
 
 ```json
-// opencode.json
 {
   "provider": {
     "openai-compatible": {
       "apiKey": "my-secret-key",
       "baseURL": "http://localhost:8000/v1",
       "models": {
-        "claude-sonnet-4-5": { "maxTokens": 16384 }
+        "claude-sonnet-4-5": { "maxTokens": 16384 },
+        "copilot/gpt-4.1": { "maxTokens": 16384 }
       }
     }
   }
@@ -227,32 +263,18 @@ claude
 ### Zed
 
 ```json
-// settings.json
 {
   "language_models": {
     "openai": {
       "api_url": "http://localhost:8000/v1",
-      "available_models": [{"name": "claude-sonnet-4-5", "max_tokens": 16384}]
+      "available_models": [
+        {"name": "claude-sonnet-4-5", "max_tokens": 16384},
+        {"name": "copilot/gpt-4.1", "max_tokens": 16384}
+      ]
     }
   }
 }
 ```
-
----
-
-## Supported Models
-
-| Model | Description |
-|-------|-------------|
-| `claude-sonnet-4-5` | Claude Sonnet 4.5 — balanced performance |
-| `claude-haiku-4-5` | Claude Haiku 4.5 — fast responses |
-| `claude-sonnet-4` | Claude Sonnet 4 — previous gen |
-| `claude-3.7-sonnet` | Claude 3.7 Sonnet — legacy |
-| `deepseek-v3.2` | DeepSeek V3.2 — open MoE model |
-| `minimax-m2.1` | MiniMax M2.1 — planning & workflows |
-| `qwen3-coder-next` | Qwen3 Coder — coding focused |
-
-> Model availability depends on your Kiro subscription tier.
 
 ---
 
@@ -265,8 +287,6 @@ claude
 | Linux | x86_64 | [aigate-linux-amd64](https://github.com/hoazgazh/aigate/releases/latest/download/aigate-linux-amd64) |
 | Linux | ARM64 | [aigate-linux-arm64](https://github.com/hoazgazh/aigate/releases/latest/download/aigate-linux-arm64) |
 | Windows | x86_64 | [aigate-windows-amd64.exe](https://github.com/hoazgazh/aigate/releases/latest/download/aigate-windows-amd64.exe) |
-
----
 
 ## Build from Source
 
@@ -299,6 +319,20 @@ docker run -p 8000:8000 \
 | `KIRO_REGION` | | AWS region (default: `us-east-1`) |
 | `PORT` | | Server port (default: `8000`) |
 | `HOST` | | Server host (default: `0.0.0.0`) |
+
+<details>
+<summary>Credential auto-detection</summary>
+
+aigate checks these paths in order:
+
+| Source | Path | Used by |
+|--------|------|---------|
+| kiro-cli SQLite | `~/.local/share/kiro-cli/data.sqlite3` | Linux / WSL / kiro-cli |
+| amazon-q SQLite | `~/.local/share/amazon-q/data.sqlite3` | amazon-q-developer-cli |
+| Kiro IDE JSON | `~/.aws/sso/cache/kiro-auth-token.json` | macOS / Kiro IDE |
+| Copilot token | `~/.local/share/aigate/github_token` | `--copilot-login` |
+
+</details>
 
 ---
 

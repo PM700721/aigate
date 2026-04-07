@@ -12,9 +12,22 @@ import (
 
 	"github.com/hoazgazh/aigate/internal/api"
 	"github.com/hoazgazh/aigate/internal/config"
+	"github.com/hoazgazh/aigate/internal/provider/copilot"
 )
 
 func main() {
+	// Check for --copilot-login flag
+	for _, arg := range os.Args[1:] {
+		if arg == "--copilot-login" {
+			cp, _ := copilot.New()
+			if err := cp.Login(context.Background()); err != nil {
+				log.Fatalf("❌ Copilot login failed: %v", err)
+			}
+			fmt.Println("You can now start aigate — Copilot models will be available as copilot/<model>")
+			return
+		}
+	}
+
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("failed to load config: %v", err)

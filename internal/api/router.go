@@ -13,22 +13,36 @@ import (
 	"github.com/hoazgazh/aigate/internal/config"
 	"github.com/hoazgazh/aigate/internal/middleware"
 	"github.com/hoazgazh/aigate/internal/provider"
+	"github.com/hoazgazh/aigate/internal/provider/copilot"
 	"github.com/hoazgazh/aigate/internal/provider/kiro"
 )
 
 type server struct {
-	cfg      *config.Config
-	provider provider.Provider
+	cfg       *config.Config
+	providers map[string]provider.Provider // model prefix → provider
+	fallback  provider.Provider            // default provider
 }
 
-// NewRouterWithProvider creates the HTTP router with initialized Kiro provider.
+// NewRouterWithProvider creates the HTTP router with initialized providers.
 func NewRouterWithProvider(cfg *config.Config) (http.Handler, error) {
-	p, err := kiro.New(cfg)
+	s := &server{
+		cfg:       cfg,
+		providers: make(map[string]provider.Provider),
+	}
+
+	// Init Kiro provider (primary)
+	kiroProvider, err := kiro.New(cfg)
 	if err != nil {
 		return nil, err
 	}
+	s.fallback = kiroProvider
 
-	s := &server{cfg: cfg, provider: p}
+	// Init Copilot provider if token exists or login requested
+	copilotProvider, err := copilot.New()
+	if err == nil && !copilotProvider.NeedsLogin() {
+		s.providers["copilot"] = copilotProvider
+		log.Printf("[api] copilot provider enabled")
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /", s.handleHealth)
@@ -42,6 +56,25 @@ func NewRouterWithProvider(cfg *config.Config) (http.Handler, error) {
 	return handler, nil
 }
 
+// resolveProvider picks the right provider based on model name.
+// Models prefixed with "copilot/" go to Copilot, everything else to Kiro.
+func (s *server) resolveProvider(model string) (provider.Provider, string) {
+	if strings.HasPrefix(model, "copilot/") {
+		if p, ok := s.providers["copilot"]; ok {
+			return p, strings.TrimPrefix(model, "copilot/")
+		}
+	}
+	return s.fallback, model
+}
+
+// CopilotProvider returns the copilot provider for login flow (may be nil).
+func (s *server) CopilotProvider() *copilot.Provider {
+	if p, ok := s.providers["copilot"]; ok {
+		return p.(*copilot.Provider)
+	}
+	return nil
+}
+
 func (s *server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"status":  "ok",
@@ -51,30 +84,32 @@ func (s *server) handleHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) handleModels(w http.ResponseWriter, r *http.Request) {
-	if s.provider == nil {
-		writeJSON(w, http.StatusServiceUnavailable, errorResp("provider not initialized"))
-		return
+	var allModels []provider.ModelInfo
+
+	// Kiro models
+	if models, err := s.fallback.ListModels(r.Context()); err == nil {
+		allModels = append(allModels, models...)
+	} else {
+		allModels = append(allModels, fallbackModels()...)
 	}
 
-	models, err := s.provider.ListModels(r.Context())
-	if err != nil {
-		log.Printf("[api] list models error: %v", err)
-		// Return fallback models
-		models = fallbackModels()
+	// Copilot models (prefixed)
+	if cp, ok := s.providers["copilot"]; ok {
+		if models, err := cp.ListModels(r.Context()); err == nil {
+			for _, m := range models {
+				m.ID = "copilot/" + m.ID
+				allModels = append(allModels, m)
+			}
+		}
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"object": "list",
-		"data":   models,
+		"data":   allModels,
 	})
 }
 
 func (s *server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
-	if s.provider == nil {
-		writeJSON(w, http.StatusServiceUnavailable, errorResp("provider not initialized"))
-		return
-	}
-
 	var req struct {
 		Model       string    `json:"model"`
 		Messages    []msgJSON `json:"messages"`
@@ -98,8 +133,11 @@ func (s *server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		msgs = append(msgs, provider.Message{Role: m.Role, Content: m.Content})
 	}
 
+	// Resolve provider based on model prefix
+	prov, resolvedModel := s.resolveProvider(req.Model)
+
 	provReq := &provider.CompletionRequest{
-		Model:       req.Model,
+		Model:       resolvedModel,
 		Messages:    msgs,
 		Stream:      req.Stream,
 		MaxTokens:   req.MaxTokens,
@@ -109,14 +147,14 @@ func (s *server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[api] POST /v1/chat/completions model=%s stream=%v messages=%d", req.Model, req.Stream, len(req.Messages))
 
 	if req.Stream {
-		s.handleStream(w, r, provReq)
+		s.handleStream(w, r, provReq, prov)
 	} else {
-		s.handleNonStream(w, r, provReq)
+		s.handleNonStream(w, r, provReq, prov)
 	}
 }
 
-func (s *server) handleStream(w http.ResponseWriter, r *http.Request, req *provider.CompletionRequest) {
-	ch, err := s.provider.Stream(r.Context(), req)
+func (s *server) handleStream(w http.ResponseWriter, r *http.Request, req *provider.CompletionRequest, prov provider.Provider) {
+	ch, err := prov.Stream(r.Context(), req)
 	if err != nil {
 		log.Printf("[api] stream error: %v", err)
 		writeJSON(w, http.StatusBadGateway, errorResp(err.Error()))
@@ -173,8 +211,8 @@ func (s *server) handleStream(w http.ResponseWriter, r *http.Request, req *provi
 	flusher.Flush()
 }
 
-func (s *server) handleNonStream(w http.ResponseWriter, r *http.Request, req *provider.CompletionRequest) {
-	resp, err := s.provider.Complete(r.Context(), req)
+func (s *server) handleNonStream(w http.ResponseWriter, r *http.Request, req *provider.CompletionRequest, prov provider.Provider) {
+	resp, err := prov.Complete(r.Context(), req)
 	if err != nil {
 		log.Printf("[api] complete error: %v", err)
 		writeJSON(w, http.StatusBadGateway, errorResp(err.Error()))
@@ -199,12 +237,6 @@ func (s *server) handleNonStream(w http.ResponseWriter, r *http.Request, req *pr
 }
 
 func (s *server) handleMessages(w http.ResponseWriter, r *http.Request) {
-	// Anthropic /v1/messages — convert to internal format and proxy
-	if s.provider == nil {
-		writeJSON(w, http.StatusServiceUnavailable, errorResp("provider not initialized"))
-		return
-	}
-
 	var req struct {
 		Model     string    `json:"model"`
 		Messages  []msgJSON `json:"messages"`
@@ -226,8 +258,10 @@ func (s *server) handleMessages(w http.ResponseWriter, r *http.Request) {
 		msgs = append(msgs, provider.Message{Role: m.Role, Content: m.Content})
 	}
 
+	prov, resolvedModel := s.resolveProvider(req.Model)
+
 	provReq := &provider.CompletionRequest{
-		Model:     req.Model,
+		Model:     resolvedModel,
 		Messages:  msgs,
 		Stream:    req.Stream,
 		MaxTokens: req.MaxTokens,
@@ -236,14 +270,14 @@ func (s *server) handleMessages(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[api] POST /v1/messages model=%s stream=%v", req.Model, req.Stream)
 
 	if req.Stream {
-		s.handleAnthropicStream(w, r, provReq)
+		s.handleAnthropicStream(w, r, provReq, prov)
 	} else {
-		s.handleAnthropicNonStream(w, r, provReq)
+		s.handleAnthropicNonStream(w, r, provReq, prov)
 	}
 }
 
-func (s *server) handleAnthropicStream(w http.ResponseWriter, r *http.Request, req *provider.CompletionRequest) {
-	ch, err := s.provider.Stream(r.Context(), req)
+func (s *server) handleAnthropicStream(w http.ResponseWriter, r *http.Request, req *provider.CompletionRequest, prov provider.Provider) {
+	ch, err := prov.Stream(r.Context(), req)
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, errorResp(err.Error()))
 		return
@@ -303,8 +337,8 @@ func (s *server) handleAnthropicStream(w http.ResponseWriter, r *http.Request, r
 	}
 }
 
-func (s *server) handleAnthropicNonStream(w http.ResponseWriter, r *http.Request, req *provider.CompletionRequest) {
-	resp, err := s.provider.Complete(r.Context(), req)
+func (s *server) handleAnthropicNonStream(w http.ResponseWriter, r *http.Request, req *provider.CompletionRequest, prov provider.Provider) {
+	resp, err := prov.Complete(r.Context(), req)
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, errorResp(err.Error()))
 		return
