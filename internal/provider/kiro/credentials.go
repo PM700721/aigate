@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 // AuthType determines which refresh endpoint to use.
@@ -116,7 +116,7 @@ func LoadFromJSON(path string) (*Credentials, error) {
 // LoadFromSQLite loads credentials from kiro-cli SQLite database.
 func LoadFromSQLite(dbPath string) (*Credentials, error) {
 	dbPath = expandPath(dbPath)
-	db, err := sql.Open("sqlite3", dbPath+"?mode=ro")
+	db, err := sql.Open("sqlite", dbPath+"?mode=ro")
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
@@ -245,7 +245,7 @@ func (c *Credentials) saveToJSON() {
 }
 
 func (c *Credentials) saveToSQLite() {
-	db, err := sql.Open("sqlite3", c.sqliteDB)
+	db, err := sql.Open("sqlite", c.sqliteDB)
 	if err != nil {
 		log.Printf("[auth] failed to open sqlite for save: %v", err)
 		return
