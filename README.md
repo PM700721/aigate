@@ -60,6 +60,13 @@ Server starts at `http://localhost:8000`. Keep this terminal open.
 ### 4. Use (in another terminal)
 
 ```bash
+# Non-streaming (single JSON response)
+curl http://localhost:8000/v1/chat/completions \
+  -H "Authorization: Bearer my-secret-key" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"claude-sonnet-4-5","messages":[{"role":"user","content":"Hello!"}]}'
+
+# Streaming (real-time token-by-token)
 curl http://localhost:8000/v1/chat/completions \
   -H "Authorization: Bearer my-secret-key" \
   -H "Content-Type: application/json" \
