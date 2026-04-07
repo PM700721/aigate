@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/nguyenbahoanganh/aigate/internal/config"
-	"github.com/nguyenbahoanganh/aigate/internal/provider"
+	"github.com/hoazgazh/aigate/internal/config"
+	"github.com/hoazgazh/aigate/internal/provider"
 )
 
 // Provider implements provider.Provider for Kiro API.

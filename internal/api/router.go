@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/nguyenbahoanganh/aigate/internal/config"
-	"github.com/nguyenbahoanganh/aigate/internal/middleware"
-	"github.com/nguyenbahoanganh/aigate/internal/provider"
-	"github.com/nguyenbahoanganh/aigate/internal/provider/kiro"
+	"github.com/hoazgazh/aigate/internal/config"
+	"github.com/hoazgazh/aigate/internal/middleware"
+	"github.com/hoazgazh/aigate/internal/provider"
+	"github.com/hoazgazh/aigate/internal/provider/kiro"
 )
 
 type server struct {

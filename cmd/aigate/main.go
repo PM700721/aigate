@@ -10,8 +10,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/nguyenbahoanganh/aigate/internal/api"
-	"github.com/nguyenbahoanganh/aigate/internal/config"
+	"github.com/hoazgazh/aigate/internal/api"
+	"github.com/hoazgazh/aigate/internal/config"
 )
 
 func main() {

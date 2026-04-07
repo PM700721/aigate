@@ -1,4 +1,4 @@
-module github.com/nguyenbahoanganh/aigate
+module github.com/hoazgazh/aigate
 
 go 1.25.3
 
